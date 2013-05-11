@@ -40,9 +40,11 @@ class MagentoImageCleanup:
         parser.add_argument('-v', '--verbose', action='store_true', default=False)
         parser.add_argument('magentoPath', metavar='MAGENTOPATH',
                             help='base path of magento')
+        parser.add_argument('--force-host', metavar='HOST', help="force this host")
         args = parser.parse_args()
         self.magentoPath = args.magentoPath
         self.really = not args.dry_run
+        self.force_host = args.force_host
         logging.basicConfig(level=(logging.DEBUG if args.verbose else logging.INFO))
 
     @staticmethod
@@ -63,7 +65,8 @@ class MagentoImageCleanup:
 
         # fixes
         prefix = prefix if prefix else ''
-        hostname = '127.0.0.1' if hostname == 'localhost' else hostname
+        if self.force_host:
+            hostname = self.force_host
 
         self.log.info("connect to mysql(host=%s, db=%s, user=%s)",
                       hostname, database, username)
