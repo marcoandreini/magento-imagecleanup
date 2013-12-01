@@ -57,11 +57,11 @@ class MagentoImageCleanup:
 
     def getAllImagePath(self):
         tree = ElementTree.parse(os.path.join(self.magentoPath, self.LOCAL_XML))
-        username = tree.find(".//username").text
-        password = tree.find(".//password").text
-        database = tree.find(".//dbname").text
-        prefix = tree.find(".//table_prefix").text
-        hostname = tree.find(".//host").text
+        username = tree.find(".//connection/username").text
+        password = tree.find(".//connection/password").text
+        database = tree.find(".//connection/dbname").text
+        hostname = tree.find(".//connection/host").text
+        prefix = tree.find(".//db/table_prefix").text
 
         # fixes
         prefix = prefix if prefix else ''
