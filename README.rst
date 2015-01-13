@@ -2,4 +2,7 @@
 magento-imagecleanup
 ====================
 
-Magento Image Cleanup
+Setup. In order to local install:
+
+ $ cd magento-imagecleanup
+ $ pip install --user ./

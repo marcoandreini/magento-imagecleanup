@@ -21,6 +21,7 @@ import os.path
 from xml.etree import ElementTree
 import MySQLdb as mdb
 import re
+import tarfile
 
 class MagentoImageCleanup:
 
@@ -38,13 +39,16 @@ class MagentoImageCleanup:
         parser.add_argument('--dry-run', action='store_true', default=False,
                             help='dry run')
         parser.add_argument('-v', '--verbose', action='store_true', default=False)
+        parser.add_argument('--force-host', metavar='HOST', help="force this host")
+        parser.add_argument('--image-archive', metavar='IMAGEARCHIVE',
+                            help='Tar archive for images')
         parser.add_argument('magentoPath', metavar='MAGENTOPATH',
                             help='base path of magento')
-        parser.add_argument('--force-host', metavar='HOST', help="force this host")
         args = parser.parse_args()
         self.magentoPath = args.magentoPath
         self.really = not args.dry_run
         self.force_host = args.force_host
+        self.imageArchive = args.image_archive
         logging.basicConfig(level=(logging.DEBUG if args.verbose else logging.INFO))
 
     @staticmethod
@@ -73,18 +77,63 @@ class MagentoImageCleanup:
         conn = mdb.connect(host=hostname, user=username, passwd=password, db=database)
 
         cur = conn.cursor()
-        cur.execute("SELECT value FROM %(prefix)scatalog_product_entity_media_gallery"
+        cur.execute("SELECT value, entity_id FROM %(prefix)scatalog_product_entity_media_gallery"
                     % {'prefix':prefix})
         images = {}
         for v in cur.fetchall():
-            images[v[0]] = True
+            images[v[0]] = v[1]
         cur.close()
         conn.close()
         self.log.info("fetched %d image paths" % (len(images), ))
         return images
 
+    def notFound(self):
+        images = self.getAllImagePath()
+
+        productsPath = os.path.join(self.magentoPath, self.MEDIA_PRODUCT)
+        index = len(productsPath)
+
+        exists = set()
+        for dirname, dirnames, filenames in os.walk(productsPath):
+            for filename in filenames:
+                if self.EXTENSIONS.match(filename):
+                    path =  os.path.join(dirname, filename)
+                    value = path[index:]
+                    exists.add(value)
+
+            for name in dirnames:
+                if 'cache' in name or 'google' in name:
+                    self.log.debug("skip %s", os.path.join(dirname, name))
+                    dirnames.remove(name)
+
+        for value in images.keys():
+            if not value in exists:
+                print value
+
+    def createImageArchive(self, images):
+        tar = tarfile.open(self.imageArchive, 'w:gz')
+        counters = {}
+        for imagePath, productId in images.items():
+            try:
+                counters[productId] += 1
+            except KeyError:
+                counters[productId] = 1
+            name = "%s_%d.jpg" % (productId, counters[productId])
+            info = tarfile.TarInfo(name=name)
+            img = os.path.join(self.magentoPath, self.MEDIA_PRODUCT, imagePath[1:])
+            info.size = os.path.getsize(img)
+            info.mtime = os.path.getmtime(img)
+            with open(img, 'r') as fileobj:
+                tar.addfile(tarinfo=info, fileobj=fileobj)
+            tar.addfile(info)
+            self.log.debug('add %s to archive', imagePath)
+        self.log.info('%s successfully created', self.imageArchive)
+
     def run(self):
         images = self.getAllImagePath()
+        if self.imageArchive:
+            self.createImageArchive(images)
+            return
 
         productsPath = os.path.join(self.magentoPath, self.MEDIA_PRODUCT)
         index = len(productsPath)
