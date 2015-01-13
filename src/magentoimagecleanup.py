@@ -41,7 +41,7 @@ class MagentoImageCleanup:
         parser.add_argument('-v', '--verbose', action='store_true', default=False)
         parser.add_argument('--force-host', metavar='HOST', help="force this host")
         parser.add_argument('--image-archive', metavar='IMAGEARCHIVE',
-                            help='Tar archive for images')
+                            help='Archive for images')
         parser.add_argument('magentoPath', metavar='MAGENTOPATH',
                             help='base path of magento')
         args = parser.parse_args()
@@ -111,7 +111,7 @@ class MagentoImageCleanup:
                 print value
 
     def createImageArchive(self, images):
-        tar = tarfile.open(self.imageArchive, 'w:gz')
+        archive = tarfile.open(self.imageArchive, 'w:gz')
         counters = {}
         for imagePath, productId in images.items():
             try:
@@ -123,10 +123,12 @@ class MagentoImageCleanup:
             img = os.path.join(self.magentoPath, self.MEDIA_PRODUCT, imagePath[1:])
             info.size = os.path.getsize(img)
             info.mtime = os.path.getmtime(img)
+            info.gid = 1000
+            info.uid = 1000
             with open(img, 'r') as fileobj:
-                tar.addfile(tarinfo=info, fileobj=fileobj)
-            tar.addfile(info)
+                archive.addfile(tarinfo=info, fileobj=fileobj)
             self.log.debug('add %s to archive', imagePath)
+        archive.close()
         self.log.info('%s successfully created', self.imageArchive)
 
     def run(self):
